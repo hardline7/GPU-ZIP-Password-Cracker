@@ -77,20 +77,164 @@ NVIDIA GPU를 활용한 고성능 ZIP 파일 비밀번호 크래커입니다. CU
    - 프로그램 실행 시 생성되는 `logs` 폴더에서 상세 로그를 확인할 수 있습니다.
    - 콘솔에서 실시간 진행 상황을 모니터링할 수 있습니다.
 
-## 📊 성능 최적화
+## 📊 GPU별 성능 최적화 설정
 
-프로그램의 성능은 GPU 성능과 설정에 따라 달라질 수 있습니다. 다음 변수들을 조정하여 최적화할 수 있습니다:
+각 GPU 시리즈별 권장 설정값입니다. 실제 환경에 따라 미세 조정이 필요할 수 있습니다.
 
+### GTX 10 시리즈
 ```python
-self.threads_per_block = 1024  # GPU 스레드 수
-self.blocks = 16384           # 블록 수
-self.num_streams = 4         # CUDA 스트림 수
-self.buffer_multiplier = 2   # 버퍼 크기 배수
+# GTX 1060 (6GB)
+self.threads_per_block = 256
+self.blocks = 4096
+self.num_streams = 2
+self.buffer_multiplier = 1
+
+# GTX 1070 (8GB)
+self.threads_per_block = 512
+self.blocks = 6144
+self.num_streams = 2
+self.buffer_multiplier = 1
+
+# GTX 1080 / 1080 Ti (8GB/11GB)
+self.threads_per_block = 512
+self.blocks = 8192
+self.num_streams = 3
+self.buffer_multiplier = 2
 ```
 
-- RTX 3090 기준으로 최적화되어 있으며, 다른 GPU의 경우 값을 조정해야 할 수 있습니다.
-- 메모리 부족 오류 발생 시 `blocks` 값을 줄여보세요.
-- GPU 사용률이 낮다면 `num_streams`를 증가시켜보세요.
+### RTX 20 시리즈
+```python
+# RTX 2060 (6GB)
+self.threads_per_block = 512
+self.blocks = 6144
+self.num_streams = 2
+self.buffer_multiplier = 1
+
+# RTX 2070 (8GB)
+self.threads_per_block = 512
+self.blocks = 8192
+self.num_streams = 3
+self.buffer_multiplier = 2
+
+# RTX 2080 / 2080 Ti (8GB/11GB)
+self.threads_per_block = 1024
+self.blocks = 8192
+self.num_streams = 3
+self.buffer_multiplier = 2
+```
+
+### RTX 30 시리즈
+```python
+# RTX 3060 (12GB)
+self.threads_per_block = 512
+self.blocks = 8192
+self.num_streams = 3
+self.buffer_multiplier = 2
+
+# RTX 3070 (8GB)
+self.threads_per_block = 1024
+self.blocks = 8192
+self.num_streams = 3
+self.buffer_multiplier = 2
+
+# RTX 3080 (10GB)
+self.threads_per_block = 1024
+self.blocks = 12288
+self.num_streams = 4
+self.buffer_multiplier = 2
+
+# RTX 3090 (24GB)
+self.threads_per_block = 1024
+self.blocks = 16384
+self.num_streams = 4
+self.buffer_multiplier = 2
+```
+
+### RTX 40 시리즈
+```python
+# RTX 4060 (8GB)
+self.threads_per_block = 512
+self.blocks = 8192
+self.num_streams = 3
+self.buffer_multiplier = 2
+
+# RTX 4070 (12GB)
+self.threads_per_block = 1024
+self.blocks = 12288
+self.num_streams = 4
+self.buffer_multiplier = 2
+
+# RTX 4080 (16GB)
+self.threads_per_block = 1024
+self.blocks = 16384
+self.num_streams = 4
+self.buffer_multiplier = 2
+
+# RTX 4090 (24GB)
+self.threads_per_block = 1024
+self.blocks = 24576
+self.num_streams = 6
+self.buffer_multiplier = 3
+```
+
+### 최적화 가이드라인
+
+1. **메모리 관련**
+   - `blocks` × `threads_per_block` × `buffer_multiplier` × 15bytes가 GPU 메모리 사용량의 주요 요소입니다
+   - GPU 메모리의 80% 이내로 사용하는 것을 권장합니다
+   - 메모리 부족 오류 발생 시 우선적으로 `blocks` 값을 줄이세요
+
+2. **성능 관련**
+   - `threads_per_block`은 GPU 아키텍처의 워프 크기(32)의 배수로 설정하는 것이 좋습니다
+   - GPU 사용률이 낮을 경우 `num_streams` 값을 증가시켜 보세요
+   - 최신 GPU일수록 더 큰 `threads_per_block` 값을 효율적으로 처리할 수 있습니다
+
+3. **발열 관련**
+   - 과도한 `num_streams` 값은 GPU 발열을 증가시킬 수 있습니다
+   - 장시간 실행 시 `buffer_multiplier` 값을 낮추는 것이 안정성에 도움될 수 있습니다
+
+4. **자동 설정 스크립트**
+```python
+def get_optimal_settings(gpu_name):
+    gpu_name = gpu_name.lower()
+    
+    # 기본값 (안전한 설정)
+    settings = {
+        'threads_per_block': 256,
+        'blocks': 4096,
+        'num_streams': 2,
+        'buffer_multiplier': 1
+    }
+    
+    # GPU 메모리에 따른 설정 조정
+    memory_gb = get_gpu_memory()  # GPU 메모리 크기 (GB)
+    
+    if memory_gb >= 20:  # 3090, 4090 등 고용량
+        settings.update({
+            'threads_per_block': 1024,
+            'blocks': 16384,
+            'num_streams': 4,
+            'buffer_multiplier': 2
+        })
+    elif memory_gb >= 10:  # 3080, 4080 등 중상급
+        settings.update({
+            'threads_per_block': 1024,
+            'blocks': 12288,
+            'num_streams': 4,
+            'buffer_multiplier': 2
+        })
+    elif memory_gb >= 8:  # 3070, 2080 등 중급
+        settings.update({
+            'threads_per_block': 512,
+            'blocks': 8192,
+            'num_streams': 3,
+            'buffer_multiplier': 2
+        })
+    
+    return settings
+```
+
+주의: 위 설정값들은 참고용이며, 실제 성능은 시스템 환경에 따라 다를 수 있습니다. 점진적으로 값을 조정하면서 최적의 설정을 찾는 것을 권장합니다.
 
 ## 🔍 문제 해결
 
